@@ -15,7 +15,7 @@ $ cd ~/.ros/camera_info && ls
 	
 	where "0" is a number of /dev/video*
 
-	For youbot's computer:
+	For computer of youbot:
 
 		$ roslaunch red_cvision usb_cam_youbot_0.launch 
 	
@@ -27,7 +27,7 @@ $ cd ~/.ros/camera_info && ls
 
 4) [just for check] Getting objects
 
-For getting objects from camra's frame you need send to service /get_list_objects Empty message:
+For getting objects from frame of camera you need send to service /get_list_objects Empty message:
 
 	$ rosservice call /get_list_objects "{}" 
 
