@@ -27,12 +27,12 @@ $ cd ~/.ros/camera_info && ls
 
 4) [just for check] Getting objects
 
-For getting objects from frame of camera you need send to service /get_list_objects Empty message:
+	For getting objects from frame of camera you need send to service /get_list_objects Empty message:
 
-	$ rosservice call /get_list_objects "{}" 
+		$ rosservice call /get_list_objects "{}" 
 
 5) [just for enjoy] See image
 
-	$ rosrun image_view image_view image:=/see_main
+		$ rosrun image_view image_view image:=/see_main
 
 Have fun!
