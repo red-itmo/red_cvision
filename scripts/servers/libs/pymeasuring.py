@@ -3,20 +3,21 @@ import rospy
 import math
 import os
 import cv2
+import time
 import imutils
 import numpy as np
 from scipy.spatial import distance as dist
 
 from cvision.msg import Object
 
-import libs.geometry as g
+import geometry as g
 
 DISSIMILARITY_THRESHOLD = 0.01
 
 MM_TO_M = 0.001
 AREA_MIN = 3000
 AREA_MAX = 35000
-DESIRED_CONTOURE_NAMES = ['circle', 'balk_lego']
+DESIRED_CONTOURE_NAMES = ['M20', 'F20_20_B']
 CONTOUR_FILES_EXT = '.npz'
 
 
@@ -242,7 +243,7 @@ class Measuring:
         image = cv2.resize(image, (int(scale * self.xy0[1]), int(scale * self.xy0[0])))
 
         # TODO think about it :)
-        state = False
+        state = True
         if len(listObjects) > 0:
-            state = True
+            state = False
         return listObjects, image, state
