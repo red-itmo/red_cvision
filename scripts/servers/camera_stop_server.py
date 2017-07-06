@@ -11,6 +11,9 @@ class CameraStopServer:
         self.stopServer = None
         self.cameraTaskServer = cameraTaskServer
 
+    def __del__(self):
+        del(self.cameraTaskServer)
+
     def handle(self, request):
         if request.mode == 0:
             self.cameraTaskServer.reset()
@@ -19,3 +22,4 @@ class CameraStopServer:
     def startServer(self):
         self.stopServer = rospy.Service('camera_stop', CameraStop, self.handle)
         rospy.loginfo('CameraStopServer start!')
+

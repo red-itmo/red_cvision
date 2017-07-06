@@ -11,13 +11,20 @@ class ServerThread(threading.Thread):
     def __init__(self, server):
         threading.Thread.__init__(self)
         self.server = server
+        self.isStop = False
+
+    def __del__(self):
+        del(self.server)
+
+    def stop(self):
+        self.isStop = True
 
     def run(self):
         self.server.startServer()
         rospy.loginfo(self.server.name + ' run!')
         while self.is_alive:
-            # TODO something
-            pass
+            if self.isStop:
+                break
 
 
 class Start:
@@ -26,16 +33,22 @@ class Start:
     def __init__(self, cameraTopic, length):
         rospy.loginfo('Start init threads')
 
-        cts = CameraTaskServer(cameraTopic, length)
-        css = CameraStopServer(cts)
+        self.cts = CameraTaskServer(cameraTopic, length)
+        self.css = CameraStopServer(self.cts)
 
-        self.cameraTaskTread = ServerThread(cts)
-        self.cameraTaskTread.start()
+        # self.cameraTaskTread = ServerThread(cts)
+        # self.cameraTaskTread.start()
 
-        self.cameraStopTread = ServerThread(css)
+        self.cameraStopTread = ServerThread(self.css)
         self.cameraStopTread.start()
+
+        self.cts.startServer()
+
         rospy.loginfo('End init threads')
 
-    def hardReset(self):
-        # TODO killing threads
-        pass
+    def __del__(self):
+        self.cameraStopTread.stop()
+        del(self.cameraStopTread)
+        del(self.cts)
+        del(self.css)
+

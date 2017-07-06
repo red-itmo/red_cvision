@@ -19,7 +19,7 @@ def getArgs():
     args = vars(ap.parse_args())
     length = float(args['length'])
     if args['topic'] is not None:
-        topicNum = float(args['topic'])
+        topicNum = int(args['topic'])
     return length, topicNum
 
 
@@ -28,9 +28,10 @@ def talker():
     length, topicNum = getArgs()
     rospy.init_node('cv_recognizer', anonymous=False)
     rospy.loginfo("Camera's topic is " + CAMERA_TOPICS[topicNum])
-    Start(CAMERA_TOPICS[topicNum], length)
+    aaa = Start(CAMERA_TOPICS[topicNum], length)
     rospy.loginfo('Spining...')
     rospy.spin()
+    del(aaa)
 
 if __name__ == '__main__':
     try:

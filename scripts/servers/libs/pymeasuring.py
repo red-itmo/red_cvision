@@ -12,12 +12,12 @@ from cvision.msg import Object
 
 import geometry as g
 
-DISSIMILARITY_THRESHOLD = 0.01
+DISSIMILARITY_THRESHOLD = 1
 
 MM_TO_M = 0.001
 AREA_MIN = 3000
 AREA_MAX = 35000
-DESIRED_CONTOURE_NAMES = ['M20', 'F20_20_B']
+DESIRED_CONTOURE_NAMES = ['M20', 'F20_20_G', 'scew_small']
 CONTOUR_FILES_EXT = '.npz'
 
 
@@ -174,7 +174,7 @@ class Measuring:
 
         # filtering image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.medianBlur(gray, 3)
+        blur = cv2.medianBlur(gray, 21)  # 3 work
         v = np.median(blur)
         sigma = 0.33
         canny_low = int(max(0, (1 - sigma) * v))
@@ -225,6 +225,7 @@ class Measuring:
         # matching and measuring found contours
         if len(foundContours) != 0:
             for cnt in foundContours:
+                print(cnt[0])
                 if cnt[0] < DISSIMILARITY_THRESHOLD:
                     rospy.loginfo(cnt[2].upper() +
                                   ' | area: ' + str(cv2.contourArea(cnt[1])) +
