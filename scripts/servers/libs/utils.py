@@ -15,6 +15,7 @@ def getCVImage(data):
         img = cv2.flip(img, -1) # because rotated camera on kuka youbot arm
         shape = img.shape
         shape = (shape[0], shape[1], math.sqrt(shape[0] ** 2 + shape[1] ** 2))
+        img[500:720, 1:1280] = [0,0,0]
     except CvBridgeError, e:
         rospy.loginfo("Conversion failed: %s", e.message)
     return img, shape

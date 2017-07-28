@@ -11,7 +11,7 @@ def getArgs():
     length = 0
     topicNum = 0
     ap = argparse.ArgumentParser()
-    ap.add_argument('-l', '--length', required=True,
+    ap.add_argument('-l', '--length', required=False, default=0.42,
                     help='length from camera to surface in [mm]')
     ap.add_argument('-t', '--topic', required=False,
                     help='camera topic num from array from talker.py')
@@ -25,7 +25,7 @@ def getArgs():
 
 def talker():
     """ the main launching function """
-    length, topicNum = getArgs()
+    length, topicNum = 0, 0     # getArgs()
     rospy.init_node('cv_recognizer', anonymous=False)
     rospy.loginfo("Camera's topic is " + CAMERA_TOPICS[topicNum])
     aaa = Start(CAMERA_TOPICS[topicNum], length)

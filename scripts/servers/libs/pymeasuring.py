@@ -7,17 +7,31 @@ import time
 import imutils
 import numpy as np
 from scipy.spatial import distance as dist
+from utils import *
 
 from cvision.msg import Object
 
 import geometry as g
 
-DISSIMILARITY_THRESHOLD = 1
+DISSIMILARITY_THRESHOLD = 0.8
+
+FOVS = (43.78, 54.35, 65.47)    # vertical, horizontal, diagonal angles. Logitech 920FullHD (640, 480)
 
 MM_TO_M = 0.001
-AREA_MIN = 3000
+AREA_MIN = 2000
 AREA_MAX = 35000
-DESIRED_CONTOURE_NAMES = ['M20', 'F20_20_G', 'scew_small']
+
+BALK20 = 'F20_20_'
+BALK40 = 'S40_40_'
+BOLT = 'M20_100'
+M = 'M'
+R20 = 'R20'
+BEARING ='Bearing'
+MOTOR = 'Motor'
+
+DESIRED_CONTOURE_NAMES = [BALK20, BALK40, BOLT, M, R20, BEARING, MOTOR]
+# DESIRED_CONTOURE_NAMES = ['1']
+
 CONTOUR_FILES_EXT = '.npz'
 
 
@@ -25,7 +39,7 @@ class Measuring:
     """ class contains functions for processing image """
 
     def __init__(self, imageInfo, length):
-        self.length = length
+        self.length = length  # lazy stick
 
         # image size
         x, y, _ = imageInfo['shape']
@@ -71,7 +85,7 @@ class Measuring:
         rospy.loginfo('OBJECT is ' + shape + '. Measuring...')
         obj = Object()
         box = cv2.minAreaRect(contour)
-        box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+        box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else -cv2.boxPoints(box)
         box = np.array(box, dtype="int")
         # box = perspective.order_points(box)
         box = self.orderPoints(box)
@@ -94,6 +108,15 @@ class Measuring:
         dD = math.sqrt(dX ** 2 + dY ** 2)
         # for diagonal FOV
         dimD = dD * self.ratioDFOV
+
+        # TODO SETUP for small and big MSize
+        kMSize = 0.035
+        if shape == M:
+            if dimD < kMSize:
+                shape = shape + '20'
+            else:
+                shape = shape + '30'
+
         alpha = math.atan2(dY, dX)
         dimX = dimD * math.cos(alpha)
         dimY = dimD * math.sin(alpha)
@@ -110,14 +133,21 @@ class Measuring:
                 angle += -math.pi    
             else:
                 angle += math.pi
+
+        # for circle objects
+        M20 = M + '20'
+        M30 = M + '30'
+        if shape in [BEARING, M20, M30]:
+            angle = 0
+
         "!!!just fine form"
         dimPx = (dX, dY, dD)
         dimMm = (dimX, dimY, 0)
-        dimM = (dimX * MM_TO_M, dimY * MM_TO_M, 0)
-        objCRFinM = (objCRF[1] * MM_TO_M * self.ratioDFOV,
-                     objCRF[0] * MM_TO_M * self.ratioDFOV,
-                     -self.length * MM_TO_M)  # holy cow!
-        objOrientation = (0, angle, 0)
+        dimM = (dimX, dimY, 0)
+        objCRFinM = (objCRF[1] * self.ratioDFOV,
+                     objCRF[0] * self.ratioDFOV,
+                     -self.length)  # holy cow!
+        objOrientation = (0, -angle, 0)
 
         rospy.loginfo('dims of object in [px]: ' + str(dimPx))
 
@@ -140,6 +170,9 @@ class Measuring:
 
             # BLUE point of a center object
             cv2.circle(image, (int(objGRF[0]), int(objGRF[1])), 5, (255, 0, 0), 2)
+            cv2.putText(image, shape,
+                        (int(objGRF[0]), int(objGRF[1])),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
             # cross in a center object
             # dA
@@ -157,7 +190,7 @@ class Measuring:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
         return obj, image
 
-    def getListObjects(self, image):
+    def getListObjects(self, image, debug=False):
         """
             - filter frame;
             - find contours;
@@ -174,17 +207,53 @@ class Measuring:
 
         # filtering image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.medianBlur(gray, 21)  # 3 work
-        v = np.median(blur)
-        sigma = 0.33
-        canny_low = int(max(0, (1 - sigma) * v))
-        canny_high = int(min(255, (1 + sigma) * v))
-        edged = cv2.Canny(blur, canny_low, canny_high)
-        edged = cv2.dilate(edged, None, iterations=3)
-        th = cv2.erode(edged, None, iterations=2)
+
+        if debug:
+            bl = cv2.getTrackbarPos('bl', 'f') * 2 + 1
+
+            t = cv2.getTrackbarPos('th', 'f')
+            k = cv2.getTrackbarPos('k', 'f')
+            c = cv2.getTrackbarPos('c', 'f')
+
+            d = cv2.getTrackbarPos('d', 'f')
+            e = cv2.getTrackbarPos('e', 'f')
+
+            # bl, t, k, c = 2*2+1, 255, 14, 12
+            blur = cv2.medianBlur(gray, 9)  # 3 work
+            _, th = cv2.threshold(blur, 100, 255, cv2.THRESH_OTSU)
+            # th = cv2.adaptiveThreshold(blur, t, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 2*k+1, c)
+
+            # v = np.median(blur)
+            # sigma = 0.33
+            # canny_low = int(max(0, (1 - sigma) * v))
+            # canny_high = int(min(255, (1 + sigma) * v))
+            #
+            # th = cv2.Canny(blur, canny_low, canny_high)
+            # edged = cv2.dilate(th, None, iterations=d)
+            # th = cv2.erode(edged, None, iterations=e)
+
+            cv2.imshow('blur', blur)
+            cv2.imshow('thresh', th)
+        else:
+            # blur = cv2.medianBlur(gray, 2*2+1)
+            # th = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15*2+1, 13)
+            blur = cv2.medianBlur(gray, 9)  # 3 work
+            _, th = cv2.threshold(blur, 180, 255, cv2.THRESH_OTSU)
+
+            # v = np.median(th)
+            # sigma = 0.33
+            # canny_low = int(max(0, (1 - sigma) * v))
+            # canny_high = int(min(255, (1 + sigma) * v))
+            #
+            # th = cv2.Canny(th, canny_low, canny_high)
+            # edged = cv2.dilate(th, None, iterations=7)
+            # th = cv2.erode(edged, None, iterations=3)
 
         contours, hierarchy = cv2.findContours(th, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # cv2.drawContours(image, contours, -1, (0, 200, 255))
+
+        # draw all contours
+        cv2.drawContours(image, contours, -1, (0,0,255))
+
         rospy.loginfo('total contours in the frame is ' + str(len(contours)))
 
         # remove all the smallest and the biggest contours
@@ -197,41 +266,85 @@ class Measuring:
                 wellContours.append(contour)
                 wellHierarchy.append(hierarchy[0][i])
 
-        # cv2.drawContours(image, wellContours, -1, (0, 0, 255))
+        if debug:
+            cv2.drawContours(image, wellContours, -1, (0, 0, 255))
 
         # compare and selecting desired contours
         foundContours = []
-        for i, sCnt in enumerate(self.standardContours):   # wood, circle
+        for i, wCnt in enumerate(wellContours):
             obj = None
-            shape = DESIRED_CONTOURE_NAMES[i]
-            for i, wCnt in enumerate(wellContours):
-                # p = cv2.arcLength(wCnt, True)
-                # wCnt = cv2.approxPolyDP(wCnt, 0.005 * p, True)
-                h = wellHierarchy[i]
-                if h[3] == -1:
-                    ret = cv2.matchShapes(wCnt, sCnt[0], 1, 0)
+            okCntsForOne = []
+            h = wellHierarchy[i]
+            for j, sCnt in enumerate(self.standardContours):
+                shape = DESIRED_CONTOURE_NAMES[j]
+                if True:    # h[3] in [-1,1,2,3,4,5]:
+                    ret = cv2.matchShapes(sCnt[0], wCnt, 1, 0)
                     if obj is None or ret < obj[0]:
                         obj = (ret, wCnt, shape)
-                        foundContours.append(obj)
+                        okCntsForOne.append(obj)
+            minimum = 999
+            okObj = None
+            for k in okCntsForOne:
+                if k[0] < minimum:
+                    minimum = k[0]
+                    okObj = k
+            foundContours.append(okObj)
+
+        # for i, sCnt in enumerate(self.standardContours):
+        #     obj = None
+        #     shape = DESIRED_CONTOURE_NAMES[i]
+        #     for i, wCn0t in enumerate(wellContours):
+        #         # p = cv2.arcLength(wCnt, True)
+        #         # wCnt = cv2.approxPolyDP(wCnt, 0.005 * p, True)
+        #         h = wellHierarchy[i]
+        #         if h[3] == -1:
+        #             ret = cv2.matchShapes(wCnt, sCnt[0], 1, 0)
+        #             if obj is None or ret < obj[0]:
+        #                 obj = (ret, wCnt, shape)
+        #                 foundContours.append(obj)
 
         test = []
-        for f in foundContours:
-            test.append(f[1])
-        cv2.drawContours(image, test, -1, (0, 255, 255))
+        try:
+            for f in foundContours:
+                test.append(f[1])
 
-        rospy.loginfo('qty well contours: ' + str(len(wellContours)))
-        rospy.loginfo('qty selected contours by matching: ' + str(len(foundContours)))
+            # draw OK conours
+            cv2.drawContours(image, test, -1, (255, 0, 0))
 
-        # matching and measuring found contours
-        if len(foundContours) != 0:
-            for cnt in foundContours:
-                print(cnt[0])
-                if cnt[0] < DISSIMILARITY_THRESHOLD:
-                    rospy.loginfo(cnt[2].upper() +
-                                  ' | area: ' + str(cv2.contourArea(cnt[1])) +
-                                  ' similr.: ' + str(cnt[0]))
-                    o, image = self.getObject(cnt[1], image, shape=cnt[2])
-                    listObjects.append(o)
+            rospy.loginfo('qty well contours: ' + str(len(wellContours)))
+            rospy.loginfo('qty selected contours by matching: ' + str(len(foundContours)))
+            print('*******************\n')
+
+            # matching and measuring found contours
+            if len(foundContours) != 0:
+                for cnt in foundContours:
+                    if cnt[0] < DISSIMILARITY_THRESHOLD:
+                        print(cnt[0], cnt[2])
+                        rospy.loginfo(cnt[2].upper() +
+                                      ' | area: ' + str(cv2.contourArea(cnt[1])) +
+                                      ' similr.: ' + str(cnt[0]))
+
+                        mask = np.zeros(gray.shape[:2], dtype='uint8')
+                        cv2.drawContours(mask, [cnt[1]], -1, 255, -1)
+
+                        if cnt[2] in [BALK20, BALK40]:
+                            mean = cv2.mean(gray, mask)
+                            if debug:
+                                cv2.imshow('ssss', mask)
+
+                            # !!! TODO SETUP for black and wihite balks
+                            kMean = 70
+                            if mean[0] < kMean:
+                                o, image = self.getObject(cnt[1], image, shape=cnt[2]+'B')
+                            else:
+                                o, image = self.getObject(cnt[1], image, shape=cnt[2]+'G')
+                        else:
+                            o, image = self.getObject(cnt[1], image, shape=cnt[2])
+                        # print(cnt[2])
+                        listObjects.append(o)
+
+        except TypeError:
+            pass
 
         # RED point in a center frame
         cv2.circle(image, (int(self.CRF[0]), int(self.CRF[1])), 5, (0, 0, 255), 2)
@@ -240,7 +353,7 @@ class Measuring:
         cv2.line(image, (self.CRF[0], 0), (self.CRF[0], self.xy0[0]), (0, 0, 255), 1)
 
         # scale for convenient
-        scale = 0.5
+        scale = 1
         image = cv2.resize(image, (int(scale * self.xy0[1]), int(scale * self.xy0[0])))
 
         # TODO think about it :)
@@ -248,3 +361,66 @@ class Measuring:
         if len(listObjects) > 0:
             state = False
         return listObjects, image, state
+
+
+if __name__ == '__main__':
+
+
+    cv2.namedWindow('f')
+
+    def nothing(x):
+        pass
+
+    cv2.createTrackbar('th', 'f', 255, 255, nothing)
+    cv2.createTrackbar('k', 'f', 14, 21, nothing)
+    cv2.createTrackbar('c', 'f', 12, 21, nothing)
+    cv2.createTrackbar('bl', 'f', 2, 21, nothing)
+
+    cv2.createTrackbar('d', 'f', 9, 21, nothing)
+    cv2.createTrackbar('e', 'f', 6, 21, nothing)
+
+
+    l = 0.565
+
+    # cap = cv2.VideoCapture(1)
+    # _, frame = cap.read()
+
+    file = 'draft/photo.jpg'
+    frame = cv2.imread(file)
+    shape = frame.shape
+
+    imageInfo = dict()
+    imageInfo['shape'] = (shape[0], shape[1], math.sqrt(shape[0] ** 2 + shape[1] ** 2))
+    imageInfo['ratio'] = None  # ration [mm] / [px]
+
+    imageDim = getDimImage(l, 0, 0, 78)  # 54.5, 42.3, 66.17
+    imageInfo['ratio'] = getRatio(imageInfo['shape'], imageDim)
+
+    m = Measuring(imageInfo, l)
+    SCALE = 0.7
+
+    while True:
+        frame = cv2.imread(file)
+        w, h, _ = frame.shape
+        frame = cv2.resize(frame, (int(h * SCALE), int(w * SCALE)))
+        # _, frame = cap.read()
+        # frame[340:480, 1:640] = [0,0,0]
+        w, h, _ = frame.shape
+        frame = cv2.resize(frame, (int(h * SCALE), int(w * SCALE)))
+        #
+        list, image, state = m.getListObjects(frame.copy(), debug=True)
+        image = cv2.resize(image, (int(h * SCALE), int(w * SCALE)))
+
+        w, h, _ = image.shape
+        image = cv2.resize(image, (int(h * 0.5), int(w * 0.5)))
+
+        cv2.imshow('0', image)
+        if not state:
+            print(list)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        # time.sleep(1)
+
+    # cap.release()
+    cv2.destroyAllWindows()
+
