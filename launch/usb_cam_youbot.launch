@@ -9,5 +9,5 @@
 		<param name="camera_name" value="logitech" />
 	</node>
 	<node name="image_proc" pkg="image_proc" type="image_proc" ns="usb_cam"/>
-	<node name="talker.py" pkg="red_cvision" type="talker.py"/>
+	<node name="cv_recognizer" pkg="red_cvision" type="talker.py"/>
 </launch>

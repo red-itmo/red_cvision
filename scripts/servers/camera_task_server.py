@@ -59,12 +59,22 @@ class CameraTaskServer:
 
     def handler(self, request):
         rospy.loginfo('Start processing request')
+        self.list = []
         self.isReady = True
         if request.mode == 1:
             self.length = request.distance
             self.subCamera = rospy.Subscriber(self.cameraTopic, Image, self.camMode1)
+
+            # if dont see anything
+            starttime = time.time()
+            curtime = 0
             while self.isReady:
+                curtime = time.time() - starttime
+                if curtime > 5.:
+		    break
+                print(curtime)
                 time.sleep(0.01)
+
             print(self.list)
         elif request.mode == 2:
             pass

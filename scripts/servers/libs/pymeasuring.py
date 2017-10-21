@@ -9,7 +9,7 @@ import numpy as np
 from scipy.spatial import distance as dist
 from utils import *
 
-from cvision.msg import Object
+from red_msgs.msg import Object
 
 import geometry as g
 
@@ -239,7 +239,8 @@ class Measuring:
             # th = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15*2+1, 13)
             blur = cv2.medianBlur(gray, 9)  # 3 work
             _, th = cv2.threshold(blur, 180, 255, cv2.THRESH_OTSU)
-
+            cv2.imshow('blur', blur)
+            cv2.imshow('th', th)
             # v = np.median(th)
             # sigma = 0.33
             # canny_low = int(max(0, (1 - sigma) * v))
@@ -249,7 +250,7 @@ class Measuring:
             # edged = cv2.dilate(th, None, iterations=7)
             # th = cv2.erode(edged, None, iterations=3)
 
-        contours, hierarchy = cv2.findContours(th, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, hierarchy = cv2.findContours(th, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # draw all contours
         cv2.drawContours(image, contours, -1, (0,0,255))
@@ -382,11 +383,11 @@ if __name__ == '__main__':
 
     l = 0.565
 
-    # cap = cv2.VideoCapture(1)
-    # _, frame = cap.read()
+    cap = cv2.VideoCapture(1)
+    _, frame = cap.read()
 
-    file = 'draft/photo.jpg'
-    frame = cv2.imread(file)
+    #file = 'draft/photo.jpg'
+    #frame = cv2.imread(file)
     shape = frame.shape
 
     imageInfo = dict()
@@ -400,10 +401,10 @@ if __name__ == '__main__':
     SCALE = 0.7
 
     while True:
-        frame = cv2.imread(file)
-        w, h, _ = frame.shape
-        frame = cv2.resize(frame, (int(h * SCALE), int(w * SCALE)))
-        # _, frame = cap.read()
+        #frame = cv2.imread(file)
+        #w, h, _ = frame.shape
+        #frame = cv2.resize(frame, (int(h * SCALE), int(w * SCALE)))
+        _, frame = cap.read()
         # frame[340:480, 1:640] = [0,0,0]
         w, h, _ = frame.shape
         frame = cv2.resize(frame, (int(h * SCALE), int(w * SCALE)))
@@ -411,7 +412,7 @@ if __name__ == '__main__':
         list, image, state = m.getListObjects(frame.copy(), debug=True)
         image = cv2.resize(image, (int(h * SCALE), int(w * SCALE)))
 
-        w, h, _ = image.shape
+        #w, h, _ = image.shape
         image = cv2.resize(image, (int(h * 0.5), int(w * 0.5)))
 
         cv2.imshow('0', image)
